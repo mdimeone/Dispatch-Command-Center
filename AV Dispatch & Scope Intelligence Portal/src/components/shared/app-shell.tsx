@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
+import type { Route } from "next";
 import Link from "next/link";
 import { AppWindow, ClipboardList, FolderKanban, Gauge, Settings, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+const navItems: Array<{ href: Route; label: string; icon: typeof Gauge }> = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/dispatch-board", label: "Dispatch Board", icon: AppWindow },
   { href: "/cases", label: "Cases", icon: ClipboardList },
