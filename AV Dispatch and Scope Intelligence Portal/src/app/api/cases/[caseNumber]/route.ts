@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getCaseByNumber } from "@/lib/data/repository";
+import { getServiceCaseByNumber } from "@/lib/data/repository";
 
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ caseNumber: string }> }
 ) {
   const { caseNumber } = await params;
-  const item = getCaseByNumber(caseNumber);
+  const item = getServiceCaseByNumber(caseNumber);
 
   if (!item) {
     return NextResponse.json({ error: "Case not found" }, { status: 404 });
