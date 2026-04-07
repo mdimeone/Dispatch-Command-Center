@@ -20,6 +20,7 @@ export function CasesBoard({
   const [repeatOnly, setRepeatOnly] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState("All priorities");
   const [stateFilter, setStateFilter] = useState("All states");
+  const [regionFilter, setRegionFilter] = useState("All regions");
   const [sortBy, setSortBy] = useState<SortOption>("at-risk");
 
   const rollupMap = useMemo(
@@ -37,11 +38,20 @@ export function CasesBoard({
     [cases]
   );
 
+  const regions = useMemo(
+    () => [
+      "All regions",
+      ...new Set(cases.map((item) => item.site.region ?? item.site.state).filter(Boolean).sort())
+    ],
+    [cases]
+  );
+
   const filteredCases = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
     const filtered = cases.filter((item) => {
       const rollup = rollupMap.get(item.caseNumber);
+      const itemRegion = item.site.region ?? item.site.state;
 
       if (repeatOnly && !rollup?.hasRepeatDispatch) {
         return false;
@@ -52,6 +62,10 @@ export function CasesBoard({
       }
 
       if (stateFilter !== "All states" && item.state !== stateFilter) {
+        return false;
+      }
+
+      if (regionFilter !== "All regions" && itemRegion !== regionFilter) {
         return false;
       }
 
@@ -67,6 +81,7 @@ export function CasesBoard({
         item.site.name,
         item.site.city,
         item.site.state,
+        itemRegion,
         signalTypes
       ]
         .join(" ")
@@ -76,16 +91,32 @@ export function CasesBoard({
     });
 
     return filtered.sort((a, b) => compareCases(a, b, sortBy, rollupMap));
-  }, [cases, priorityFilter, repeatOnly, rollupMap, searchQuery, sortBy, stateFilter]);
+  }, [cases, priorityFilter, regionFilter, repeatOnly, rollupMap, searchQuery, sortBy, stateFilter]);
 
   const repeatCaseCount = filteredCases.filter(
     (item) => rollupMap.get(item.caseNumber)?.hasRepeatDispatch
   ).length;
+  const staleCaseCount = filteredCases.filter((item) => isStale48Plus(item.updatedAt)).length;
+  const hasActiveFilters =
+    Boolean(searchQuery.trim()) ||
+    repeatOnly ||
+    priorityFilter !== "All priorities" ||
+    stateFilter !== "All states" ||
+    regionFilter !== "All regions";
+
+  function clearFilters() {
+    setSearchQuery("");
+    setRepeatOnly(false);
+    setPriorityFilter("All priorities");
+    setStateFilter("All states");
+    setRegionFilter("All regions");
+    setSortBy("at-risk");
+  }
 
   return (
     <div className="space-y-4">
       <Card className="space-y-4">
-        <div className="grid gap-3 lg:grid-cols-[1.3fr_repeat(4,minmax(0,1fr))]">
+        <div className="grid gap-3 lg:grid-cols-[1.3fr_repeat(5,minmax(0,1fr))]">
           <label className="space-y-1">
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Search</span>
             <input
@@ -124,6 +155,20 @@ export function CasesBoard({
             </select>
           </label>
           <label className="space-y-1">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Region</span>
+            <select
+              value={regionFilter}
+              onChange={(event) => setRegionFilter(event.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-sky-300 focus:ring-2 focus:ring-sky-100"
+            >
+              {regions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="space-y-1">
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Sort</span>
             <select
               value={sortBy}
@@ -147,10 +192,25 @@ export function CasesBoard({
           </label>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
-          <Badge tone="slate">{filteredCases.length} visible</Badge>
-          <Badge tone="amber">{repeatCaseCount} repeat</Badge>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <Badge tone="slate">{filteredCases.length} of {cases.length} visible</Badge>
+            <Badge tone="amber">{repeatCaseCount} repeat</Badge>
+            <Badge tone={staleCaseCount > 0 ? "red" : "slate"}>{staleCaseCount} stale 48h+</Badge>
+          </div>
+          <button
+            type="button"
+            onClick={clearFilters}
+            disabled={!hasActiveFilters}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            Clear all filters
+          </button>
         </div>
+
+        <p className="text-sm text-slate-600">
+          Showing {filteredCases.length} of {cases.length} cases, including {repeatCaseCount} repeat-dispatch and {staleCaseCount} stale (48h+) cases.
+        </p>
       </Card>
 
       {!filteredCases.length ? (
@@ -172,7 +232,7 @@ export function CasesBoard({
               <p className="text-sm text-slate-500">{item.caseNumber}</p>
               <h3 className="mt-1 text-xl font-semibold text-slate-950">{item.shortDescription}</h3>
               <p className="mt-2 text-sm text-slate-600">
-                {item.client.name} • {item.site.name}
+                {item.client.name} - {item.site.name}
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
@@ -347,4 +407,16 @@ function ageHoursTone(value?: string): "slate" | "amber" | "red" {
     return "amber";
   }
   return "slate";
+}
+
+function isStale48Plus(value?: string) {
+  if (!value) {
+    return false;
+  }
+  const updated = new Date(value).getTime();
+  if (Number.isNaN(updated)) {
+    return false;
+  }
+  const diffHours = Math.floor((Date.now() - updated) / 3_600_000);
+  return diffHours >= 48;
 }
