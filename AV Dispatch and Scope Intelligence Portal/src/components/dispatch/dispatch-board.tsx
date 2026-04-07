@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { Route as AppRoute } from "next";
 import Link from "next/link";
 import {
@@ -39,7 +39,11 @@ export function DispatchBoard({
   const [compactMode, setCompactMode] = useState(true);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isDraggingBoard, setIsDraggingBoard] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const dragStartXRef = useRef(0);
+  const dragStartScrollLeftRef = useRef(0);
+  const activePointerIdRef = useRef<number | null>(null);
 
   const visibleDates = useMemo(
     () => snapshot.dates.slice(0, Math.min(dayWindow, snapshot.dates.length)),
@@ -107,7 +111,7 @@ export function DispatchBoard({
   );
 
   const dayGridColumns = `220px 110px 64px 70px 136px repeat(${visibleDates.length}, minmax(${compactMode ? "196px" : "236px"}, 1fr))`;
-  const scrollStep = compactMode ? 320 : 400;
+  const regionColumnEndPx = 220 + 110;
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -132,17 +136,60 @@ export function DispatchBoard({
     };
   }, [compactMode, dayWindow, filteredRows.length, regionFilter, searchQuery, visibleDates.length]);
 
-  function scrollBoard(direction: "left" | "right") {
-    const container = scrollContainerRef.current;
+  function isInteractiveTarget(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+    return Boolean(target.closest("a, button, input, select, textarea, [role='button']"));
+  }
 
+  function startBoardDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    if (isInteractiveTarget(event.target)) {
+      return;
+    }
+
+    const container = scrollContainerRef.current;
     if (!container) {
       return;
     }
 
-    container.scrollBy({
-      left: direction === "left" ? -scrollStep : scrollStep,
-      behavior: "smooth"
-    });
+    activePointerIdRef.current = event.pointerId;
+    dragStartXRef.current = event.clientX;
+    dragStartScrollLeftRef.current = container.scrollLeft;
+    setIsDraggingBoard(true);
+    container.setPointerCapture(event.pointerId);
+  }
+
+  function moveBoardDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!isDraggingBoard || activePointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    const container = scrollContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const deltaX = event.clientX - dragStartXRef.current;
+    container.scrollLeft = dragStartScrollLeftRef.current - deltaX;
+  }
+
+  function endBoardDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (activePointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    const container = scrollContainerRef.current;
+    if (container?.hasPointerCapture(event.pointerId)) {
+      container.releasePointerCapture(event.pointerId);
+    }
+
+    activePointerIdRef.current = null;
+    setIsDraggingBoard(false);
   }
 
   return (
@@ -256,42 +303,30 @@ export function DispatchBoard({
         </div>
 
         <div className="relative">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-40 w-8 bg-gradient-to-r from-white via-white/85 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-40 w-10 bg-gradient-to-l from-white via-white/85 to-transparent" />
-
-          <button
-            type="button"
-            onClick={() => scrollBoard("left")}
-            disabled={!canScrollLeft}
+          <div
             className={cn(
-              "absolute left-3 top-3 z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-white/95 text-slate-700 shadow-sm transition",
-              canScrollLeft
-                ? "border-slate-200 hover:border-sky-200 hover:text-sky-700"
-                : "cursor-default border-slate-100 text-slate-300 shadow-none"
+              "pointer-events-none absolute inset-y-0 z-40 w-3 bg-gradient-to-r from-white to-transparent transition-opacity",
+              canScrollLeft ? "opacity-100" : "opacity-0"
             )}
-            aria-label="Scroll dispatch board left"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => scrollBoard("right")}
-            disabled={!canScrollRight}
+            style={{ left: `${regionColumnEndPx - 1}px` }}
+          />
+          <div
             className={cn(
-              "absolute right-3 top-3 z-50 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-white/95 text-slate-700 shadow-sm transition",
-              canScrollRight
-                ? "border-slate-200 hover:border-sky-200 hover:text-sky-700"
-                : "cursor-default border-slate-100 text-slate-300 shadow-none"
+              "pointer-events-none absolute inset-y-0 right-0 z-40 w-10 bg-gradient-to-l from-white via-white/85 to-transparent transition-opacity",
+              canScrollRight ? "opacity-100" : "opacity-0"
             )}
-            aria-label="Scroll dispatch board right"
-          >
-            <ArrowRight className="h-4 w-4" />
-          </button>
+          />
 
           <div
             ref={scrollContainerRef}
-            className="w-full overflow-x-auto overscroll-x-contain scroll-smooth"
+            onPointerDown={startBoardDrag}
+            onPointerMove={moveBoardDrag}
+            onPointerUp={endBoardDrag}
+            onPointerCancel={endBoardDrag}
+            className={cn(
+              "w-full overflow-x-auto overscroll-x-contain",
+              isDraggingBoard ? "cursor-grabbing select-none" : "cursor-grab"
+            )}
           >
             <div className="min-w-max" style={{ display: "grid", gridTemplateColumns: dayGridColumns }}>
               <HeaderCell className="sticky left-0 z-30">Company</HeaderCell>
