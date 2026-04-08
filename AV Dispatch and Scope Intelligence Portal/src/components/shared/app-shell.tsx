@@ -42,6 +42,7 @@ export function AppShell({
                 <Link
                   key={href}
                   href={href}
+                  prefetch={false}
                   className={cn(
                     "flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm transition",
                     active ? "brand-sidebar-active" : "text-blue-100 hover:bg-white/10"
@@ -63,6 +64,7 @@ export function AppShell({
 
           <Link
             href={"/logout" as Route}
+            prefetch={false}
             className="mt-4 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-blue-100 transition hover:bg-white/10"
           >
             <LogOut className="h-4 w-4" />
