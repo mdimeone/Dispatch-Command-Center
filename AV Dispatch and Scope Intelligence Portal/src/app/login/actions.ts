@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { createSession, getSharedPassword } from "@/lib/auth";
+import { createSession, getSharedPassword, isSessionConfigured } from "@/lib/auth";
 
 export async function loginAction(
   _prevState: void | { error?: string } | undefined,
@@ -16,6 +16,13 @@ export async function loginAction(
     return {
       error:
         "AUTH_SHARED_PASSWORD is not configured in the server environment (Railway Service Variables)."
+    };
+  }
+
+  if (!isSessionConfigured()) {
+    return {
+      error:
+        "AUTH_SESSION_SECRET is not configured in the server environment (Railway Service Variables)."
     };
   }
 

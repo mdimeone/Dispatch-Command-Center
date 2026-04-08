@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-const AUTH_COOKIE_NAME = "av_dispatch_session";
+import { AUTH_COOKIE_NAME, isValidSessionValue } from "@/lib/auth/session";
 const PUBLIC_PATHS = ["/login"];
 
 export function middleware(request: NextRequest) {
@@ -12,11 +11,13 @@ export function middleware(request: NextRequest) {
   }
 
   const session = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-  if (Boolean(session)) {
+  if (isValidSessionValue(session)) {
     return NextResponse.next();
   }
 
-  const loginUrl = new URL("/login", request.url);
+  const loginUrl = request.nextUrl.clone();
+  loginUrl.pathname = "/login";
+  loginUrl.search = "";
   loginUrl.searchParams.set("next", `${pathname}${search}`);
   return NextResponse.redirect(loginUrl);
 }

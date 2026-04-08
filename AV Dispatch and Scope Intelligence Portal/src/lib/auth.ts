@@ -1,18 +1,18 @@
 import { cookies } from "next/headers";
-
-export const AUTH_COOKIE_NAME = "av_dispatch_session";
-
-function getSessionToken() {
-  return process.env.AUTH_SESSION_SECRET?.trim() || "local-prototype-session";
-}
+import { AUTH_COOKIE_NAME, getSessionToken, isValidSessionValue } from "@/lib/auth/session";
 
 export function getSharedPassword() {
   return process.env.AUTH_SHARED_PASSWORD?.trim() || "";
 }
 
+export function isSessionConfigured() {
+  return Boolean(getSessionToken());
+}
+
 export async function isAuthenticated() {
   const cookieStore = await cookies();
-  return Boolean(cookieStore.get(AUTH_COOKIE_NAME)?.value);
+  const value = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  return isValidSessionValue(value);
 }
 
 export async function createSession() {
