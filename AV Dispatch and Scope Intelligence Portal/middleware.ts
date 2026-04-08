@@ -18,7 +18,8 @@ export function middleware(request: NextRequest) {
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
   loginUrl.search = "";
-  loginUrl.searchParams.set("next", `${pathname}${search}`);
+  const nextPath = pathname === "/" ? "/dashboard" : `${pathname}${search}`;
+  loginUrl.searchParams.set("next", nextPath);
   return NextResponse.redirect(loginUrl);
 }
 

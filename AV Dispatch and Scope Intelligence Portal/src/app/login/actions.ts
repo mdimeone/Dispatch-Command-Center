@@ -10,6 +10,7 @@ export async function loginAction(
 ) {
   const password = String(formData.get("password") ?? "");
   const nextPath = String(formData.get("next") ?? "/dashboard");
+  const normalizedNextPath = nextPath === "/" ? "/dashboard" : nextPath;
   const sharedPassword = getSharedPassword();
 
   if (!sharedPassword) {
@@ -31,7 +32,7 @@ export async function loginAction(
   }
 
   await createSession();
-  redirect((isSafeRedirect(nextPath) ? nextPath : "/dashboard") as Route);
+  redirect((isSafeRedirect(normalizedNextPath) ? normalizedNextPath : "/dashboard") as Route);
 }
 
 function isSafeRedirect(value: string) {
