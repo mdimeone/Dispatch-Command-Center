@@ -3,10 +3,10 @@ import { DashboardMetric } from "@/types/domain";
 import { cn } from "@/lib/utils";
 
 const toneClasses = {
-  default: "from-white to-slate-50",
-  positive: "from-emerald-50 to-white",
-  warning: "from-amber-50 to-white",
-  danger: "from-rose-50 to-white"
+  default: "from-white to-[var(--brand-blue-50)]",
+  positive: "from-emerald-50 to-[var(--brand-blue-50)]",
+  warning: "from-amber-50 to-[var(--brand-blue-50)]",
+  danger: "from-rose-50 to-[var(--brand-blue-50)]"
 };
 
 export function KpiCard({ metric }: { metric: DashboardMetric }) {

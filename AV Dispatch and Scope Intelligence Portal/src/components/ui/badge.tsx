@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const toneClasses = {
-  slate: "bg-slate-100 text-slate-700",
-  sky: "bg-sky-100 text-sky-700",
+  slate: "bg-[var(--brand-blue-50)] text-[var(--brand-blue-900)]",
+  sky: "brand-chip",
   green: "bg-emerald-100 text-emerald-700",
   amber: "bg-amber-100 text-amber-700",
   red: "bg-rose-100 text-rose-700"
