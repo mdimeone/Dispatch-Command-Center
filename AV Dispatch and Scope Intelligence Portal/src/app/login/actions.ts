@@ -13,7 +13,10 @@ export async function loginAction(
   const sharedPassword = getSharedPassword();
 
   if (!sharedPassword) {
-    return { error: "AUTH_SHARED_PASSWORD is not configured yet." };
+    return {
+      error:
+        "AUTH_SHARED_PASSWORD is not configured in the server environment (Railway Service Variables)."
+    };
   }
 
   if (password !== sharedPassword) {

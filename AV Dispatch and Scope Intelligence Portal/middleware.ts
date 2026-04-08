@@ -4,10 +4,6 @@ import { NextResponse } from "next/server";
 const AUTH_COOKIE_NAME = "av_dispatch_session";
 const PUBLIC_PATHS = ["/login"];
 
-function getSessionToken() {
-  return process.env.AUTH_SESSION_SECRET?.trim() || "local-prototype-session";
-}
-
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
@@ -16,8 +12,7 @@ export function middleware(request: NextRequest) {
   }
 
   const session = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-
-  if (session === getSessionToken()) {
+  if (Boolean(session)) {
     return NextResponse.next();
   }
 
