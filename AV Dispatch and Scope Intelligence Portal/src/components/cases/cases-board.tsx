@@ -226,6 +226,7 @@ export function CasesBoard({
           const age = formatAging(item.updatedAt);
           const ageTone = ageHoursTone(item.updatedAt);
           const caseDetailHref = `/cases/${item.caseNumber}` as AppRoute;
+          const scopeBuilderHref = buildScopeBuilderHref(item);
 
           return (
             <Card key={item.id}>
@@ -280,6 +281,12 @@ export function CasesBoard({
                   className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   Scope review
+                </Link>
+                <Link
+                  href={scopeBuilderHref}
+                  className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Scope builder
                 </Link>
               </div>
             </Card>
@@ -419,4 +426,27 @@ function isStale48Plus(value?: string) {
   }
   const diffHours = Math.floor((Date.now() - updated) / 3_600_000);
   return diffHours >= 48;
+}
+
+function buildScopeBuilderHref(item: ServiceCase): AppRoute {
+  const params = new URLSearchParams({
+    case: item.caseNumber,
+    client: item.client.name,
+    site: item.site.name,
+    city: item.site.address?.city ?? item.site.city ?? "",
+    state: item.site.address?.stateOrProvince ?? item.site.state ?? "",
+    address: formatSiteAddress(item),
+    contactName: item.primaryContact?.name ?? "",
+    contactEmail: item.primaryContact?.email ?? "",
+    contactPhone: item.primaryContact?.mobilePhone ?? item.primaryContact?.businessPhone ?? ""
+  });
+  return `/scope-builder?${params.toString()}` as AppRoute;
+}
+
+function formatSiteAddress(item: ServiceCase) {
+  const address = item.site.address;
+  if (!address) {
+    return "";
+  }
+  return `${address.street}, ${address.city}, ${address.stateOrProvince} ${address.postalCode}`.trim();
 }

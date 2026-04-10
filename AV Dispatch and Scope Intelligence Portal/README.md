@@ -109,39 +109,52 @@ Core dispatch-focused views:
   - Escalate
 
 ## 4.2 Scope of Work Builder
-A significantly enhanced scope builder that supports both manual input and AI-assisted generation.
+The original Python/Dash application (`av_supervisor_dashboard.py`) includes a production-ready Scope of Work Generator. The Next.js implementation should preserve this proven workflow while expanding capability.
 
-### Scope builder features
-- Start from:
-  - existing case
-  - dispatch item
-  - blank template
-  - prior scope version
-- Auto-fill client/site details from current data source
-- Rich text editor for scope body
-- Structured sections with guided prompts
-- Suggested staffing based on job type
-- Internal actions and special tool prompts
-- Section-level AI assist buttons
-- “Rewrite for clarity” / “Make more client-friendly” actions
-- Preview mode for internal vs client-facing versions
-- Download/export support
-- Scope version history
-- Scope approval / signoff workflow (future phase)
+### Current scope generator behavior (from the original Python app)
+- Route and UX: The builder is exposed at `/scope-builder` as a dedicated two-column workspace with guided sections for Case Details, Scope Guidance, Contacts/Staffing, and Generated Scope preview.
+- Case prefill: Entering a case number attempts lookup against case and dispatch datasets to auto-fill client and site. Exact matches are preferred; partial matching is intentionally limited to avoid ambiguous numeric case IDs.
+- Case-to-builder shortcuts: The Cases board and Case Detail page both include a direct `Scope builder` action so supervisors can jump to drafting without losing workflow context.
+- Context handoff behavior: Opening scope builder from a case passes key case fields via URL query params (case number, client, site, city/state, address, and contact details) and pre-populates the form on load.
+- Structured input model: The form captures schedule, complexity, technician count, site/contact details, staffing ownership, labor-partner details, internal actions, remote support, special tools, Tier 2 notes, and previous-visit context.
+- Conditional prompts: Follow-up fields are hidden or shown based on answers (for example staffing mode, internal actions yes/no, remote support yes/no). This keeps the workflow concise while still collecting complete scope context.
+- Rich text work scope entry: The Work Scope body accepts formatted input (bold, bullets, numbered lists, links). HTML is sanitized and converted into safe markdown/plain-text output for preview and export.
+- Live generation pipeline: Every relevant field change rebuilds a structured scope preview in real time and updates summary banners (visit/staffing summary and internal-actions alert).
+- Output structure: Generated scope content is assembled into consistent sections:
+  - Overview
+  - Staffing Plan
+  - Onsite Contact
+  - Special Tools Required (conditional)
+  - Work Scope
+  - Remote Support (conditional)
+  - Tier 2 Notes (conditional)
+  - Previous Visit Context (conditional)
+  - Closeout Expectations
+- Export behavior: Users can download the generated scope as `.doc` or `.txt`, with case-based filename normalization.
 
-### Scope structure targets
-Potential sections may include:
-- Overview
-- Reason for visit
-- Scope of work
-- Staffing plan
-- Required tools / access
-- Site / contact details
-- Risks and assumptions
-- Closeout expectations
-- Internal notes
-- Out-of-scope warnings
-- Scope-to-BOM alignment summary
+### Scope builder migration guidance
+- Preserve the same conditional field logic and section ordering so operations users get familiar, predictable output.
+- Keep case-number lookup and client/site prefill behavior aligned with legacy matching rules.
+- Maintain rich-text-safe handling for scope body input so formatting survives preview/export without unsafe HTML.
+- Add AI drafting/rewrite and approval workflow as additive layers on top of this baseline generator, not as a replacement for core structured scope capture.
+
+### 4.2.1 Location-Based Labor Provider + Internal Utilization
+Add a labor sourcing panel in the scope builder that responds to the selected service location.
+
+Current implementation target (pre-SharePoint):
+- Data source for labor providers: Excel file at `./data/current/labor_provider_directory.xlsx`
+- Purpose: when site/city/state is filled in, show matching labor provider vendors for that geography
+- Manual setup now: populate this workbook directly with a small starter vendor list before feature build
+
+Future source:
+- Replace the labor provider Excel source with a SharePoint list-backed connector
+- Keep the same normalized API contract so UI behavior does not change when source changes
+
+Internal technician utilization:
+- Add a secondary source that checks internal technician availability/utilization
+- Primary future source: internal scheduling database/service
+- Interim option: Excel mirror at `./data/current/internal_technician_schedule.xlsx`
+- Behavior goal: when project technician utilization is low, surface internal technicians as recommended staffing options before escalating to labor partners
 
 ## 4.3 AI Integration
 AI should be a first-class capability, not an afterthought.
@@ -227,6 +240,8 @@ Possible source files:
 - detail sheet exports
 - BOM workbook
 - staffing / technician reference sheet
+- labor provider directory workbook (`./data/current/labor_provider_directory.xlsx`)
+- internal technician schedule workbook (`./data/current/internal_technician_schedule.xlsx`)
 - project reference workbook
 
 ### Excel usage rules
@@ -526,6 +541,8 @@ PORT=3000
 DATA_SOURCE=excel
 EXCEL_DISPATCH_FILE=./data/current/dispatch.xlsx
 EXCEL_BOM_FILE=./data/current/bom.xlsx
+EXCEL_LABOR_PROVIDER_FILE=./data/current/labor_provider_directory.xlsx
+EXCEL_INTERNAL_TECH_SCHEDULE_FILE=./data/current/internal_technician_schedule.xlsx
 
 # Auth
 AUTH_MODE=local
@@ -683,3 +700,4 @@ As implementation begins, this README should evolve to include:
 - screenshots and workflow examples
 
 This document should be treated as the product and architecture starting point, not the final specification.
+

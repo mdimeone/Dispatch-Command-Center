@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRef } from "react";
 import { Download, Sparkles } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SectionHeading } from "@/components/ui/section-heading";
@@ -281,6 +283,8 @@ function escapeHtml(value: string): string {
 export function ScopeBuilderWorkbench({ seedCases }: ScopeBuilderWorkbenchProps) {
   const [form, setForm] = useState<ScopeFormState>(DEFAULT_FORM);
   const [downloadFormat, setDownloadFormat] = useState<DownloadFormat>("txt");
+  const searchParams = useSearchParams();
+  const queryPrefillApplied = useRef(false);
 
   const casesByNormalizedNumber = useMemo(() => {
     const lookup = new Map<string, ScopeCaseSeed>();
@@ -329,6 +333,53 @@ export function ScopeBuilderWorkbench({ seedCases }: ScopeBuilderWorkbenchProps)
   const visitSummary = useMemo(() => buildVisitSummary(form), [form]);
   const internalActionsSummary = useMemo(() => buildInternalActionsSummary(form), [form]);
   const previewText = useMemo(() => buildScopePreview(form), [form]);
+
+  useEffect(() => {
+    if (queryPrefillApplied.current) {
+      return;
+    }
+
+    const caseNumber = searchParams.get("case")?.trim() ?? "";
+    const clientName = searchParams.get("client")?.trim() ?? "";
+    const siteName = searchParams.get("site")?.trim() ?? "";
+    const city = searchParams.get("city")?.trim() ?? "";
+    const state = searchParams.get("state")?.trim() ?? "";
+    const siteAddress = searchParams.get("address")?.trim() ?? "";
+    const contactName = searchParams.get("contactName")?.trim() ?? "";
+    const contactEmail = searchParams.get("contactEmail")?.trim() ?? "";
+    const contactPhone = searchParams.get("contactPhone")?.trim() ?? "";
+
+    const hasPrefill =
+      caseNumber ||
+      clientName ||
+      siteName ||
+      city ||
+      state ||
+      siteAddress ||
+      contactName ||
+      contactEmail ||
+      contactPhone;
+
+    if (!hasPrefill) {
+      queryPrefillApplied.current = true;
+      return;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      caseNumber: caseNumber || prev.caseNumber,
+      clientName: clientName || prev.clientName,
+      siteName: siteName || prev.siteName,
+      city: city || prev.city,
+      state: state || prev.state,
+      siteAddress: siteAddress || prev.siteAddress,
+      onsiteContactName: contactName || prev.onsiteContactName,
+      onsiteContactEmail: contactEmail || prev.onsiteContactEmail,
+      onsiteContactPhone: contactPhone || prev.onsiteContactPhone
+    }));
+
+    queryPrefillApplied.current = true;
+  }, [searchParams]);
 
   function updateForm<K extends keyof ScopeFormState>(key: K, value: ScopeFormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

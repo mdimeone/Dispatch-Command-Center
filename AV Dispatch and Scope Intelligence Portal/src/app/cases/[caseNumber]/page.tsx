@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/shared/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,10 @@ interface CaseNoteEntry {
   text: string;
 }
 
+type CaseNarrativeEvent =
+  | { id: string; type: "case-note"; at?: string; note: CaseNoteEntry }
+  | { id: string; type: "work-order"; at?: string; workOrder: WorkOrder };
+
 export default async function CaseDetailPage({
   params
 }: {
@@ -64,7 +69,8 @@ export default async function CaseDetailPage({
   const decisionItems = buildDecisionItems(serviceCase, readiness);
   const chronologicalWorkOrders = sortWorkOrdersChronological(workOrders);
   const readableCaseNotes = extractCaseNoteEntries(serviceCase.commentsAndWorkNotesRaw);
-  const noteBuckets = bucketCaseNotesByWorkOrderTiming(readableCaseNotes, chronologicalWorkOrders);
+  const narrativeEvents = buildCaseNarrativeEvents(readableCaseNotes, chronologicalWorkOrders);
+  const scopeBuilderHref = buildScopeBuilderHref(serviceCase);
 
   return (
     <AppShell currentPath="/cases">
@@ -128,6 +134,12 @@ export default async function CaseDetailPage({
               className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             >
               Scope review
+            </Link>
+            <Link
+              href={scopeBuilderHref}
+              className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Scope builder
             </Link>
           </div>
         </Card>
@@ -224,50 +236,42 @@ export default async function CaseDetailPage({
 
               <section className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  3. Case Narrative (Notes + Work Orders In Sequence)
+                  3. Case Narrative (Newest First)
                 </p>
 
                 <div className="space-y-4">
-                  {Array.from({ length: chronologicalWorkOrders.length + 1 }).map((_, index) => (
-                    <div key={`narrative-step-${index}`} className="space-y-3">
-                      {noteBuckets[index]?.length ? (
-                        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-900">
-                            Case Notes (Readable)
-                          </p>
-                          <div className="mt-2 space-y-2 text-sm text-slate-800">
-                            {noteBuckets[index].map((note) => (
-                              <div key={note.id} className="rounded-xl border border-sky-200 bg-white p-3">
-                                <p className="text-xs font-semibold text-slate-500">{formatDateTime(note.at)}</p>
-                                <pre className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{note.text}</pre>
-                              </div>
-                            ))}
-                          </div>
+                  {narrativeEvents.map((event) =>
+                    event.type === "case-note" ? (
+                      <div key={event.id} className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-900">
+                          Case Notes (Readable)
+                        </p>
+                        <div className="mt-2 rounded-xl border border-sky-200 bg-white p-3">
+                          <p className="text-xs font-semibold text-slate-500">{formatDateTime(event.at)}</p>
+                          <pre className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{event.note.text}</pre>
                         </div>
-                      ) : null}
-
-                      {chronologicalWorkOrders[index] ? (
-                        <details className="rounded-2xl border border-slate-200 p-4">
-                          <summary className="cursor-pointer">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge tone="slate">Work Order</Badge>
-                              <p className="text-sm font-semibold text-slate-900">
-                                {chronologicalWorkOrders[index].workOrderNumber} ({chronologicalWorkOrders[index].state})
-                              </p>
-                            </div>
-                            <p className="mt-1 text-xs text-slate-500">
-                              Anchor date: {formatDateTime(getWorkOrderAnchorDate(chronologicalWorkOrders[index]))}
+                      </div>
+                    ) : (
+                      <details key={event.id} className="rounded-2xl border border-slate-200 p-4">
+                        <summary className="cursor-pointer">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge tone="slate">Work Order</Badge>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {event.workOrder.workOrderNumber} ({event.workOrder.state})
                             </p>
-                          </summary>
-                          <div className="mt-3">
-                            <WorkOrderDetail workOrder={chronologicalWorkOrders[index]} />
                           </div>
-                        </details>
-                      ) : null}
-                    </div>
-                  ))}
+                          <p className="mt-1 text-xs text-slate-500">
+                            Anchor date: {formatDateTime(getWorkOrderAnchorDate(event.workOrder))}
+                          </p>
+                        </summary>
+                        <div className="mt-3">
+                          <WorkOrderDetail workOrder={event.workOrder} />
+                        </div>
+                      </details>
+                    )
+                  )}
 
-                  {!readableCaseNotes.length && !chronologicalWorkOrders.length ? (
+                  {!narrativeEvents.length ? (
                     <p className="text-sm text-slate-600">No case notes or work orders available for narrative view.</p>
                   ) : null}
                 </div>
@@ -738,34 +742,22 @@ function extractCaseNoteEntries(rawNotes: string) {
   return entries;
 }
 
-function bucketCaseNotesByWorkOrderTiming(caseNotes: CaseNoteEntry[], workOrders: WorkOrder[]) {
-  const buckets = Array.from({ length: workOrders.length + 1 }, () => [] as CaseNoteEntry[]);
+function buildCaseNarrativeEvents(caseNotes: CaseNoteEntry[], workOrders: WorkOrder[]) {
+  const noteEvents: CaseNarrativeEvent[] = caseNotes.map((note) => ({
+    id: `case-note-event-${note.id}`,
+    type: "case-note",
+    at: note.at,
+    note
+  }));
 
-  if (!caseNotes.length) {
-    return buckets;
-  }
+  const workOrderEvents: CaseNarrativeEvent[] = workOrders.map((workOrder) => ({
+    id: `work-order-event-${workOrder.id}`,
+    type: "work-order",
+    at: getWorkOrderAnchorDate(workOrder),
+    workOrder
+  }));
 
-  const workOrderAnchors = workOrders.map((workOrder) => toTime(getWorkOrderAnchorDate(workOrder)));
-  let carryIndex = 0;
-
-  caseNotes.forEach((note) => {
-    const noteTime = toTime(note.at);
-
-    if (!Number.isFinite(noteTime)) {
-      buckets[Math.min(carryIndex, buckets.length - 1)].push(note);
-      return;
-    }
-
-    let bucketIndex = workOrderAnchors.findIndex((anchor) => noteTime < anchor);
-    if (bucketIndex === -1) {
-      bucketIndex = workOrders.length;
-    }
-
-    carryIndex = bucketIndex;
-    buckets[bucketIndex].push(note);
-  });
-
-  return buckets;
+  return [...noteEvents, ...workOrderEvents].sort((a, b) => sortDateDesc(a.at, b.at));
 }
 
 function parseCaseTimestamp(value: string) {
@@ -853,4 +845,27 @@ function toLabel(value: string) {
   return value
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (character) => character.toUpperCase());
+}
+
+function buildScopeBuilderHref(serviceCase: ServiceCase): Route {
+  const params = new URLSearchParams({
+    case: serviceCase.caseNumber,
+    client: serviceCase.client.name,
+    site: serviceCase.site.name,
+    city: serviceCase.site.address?.city ?? serviceCase.site.city ?? "",
+    state: serviceCase.site.address?.stateOrProvince ?? serviceCase.site.state ?? "",
+    address: formatSiteAddress(serviceCase),
+    contactName: serviceCase.primaryContact?.name ?? "",
+    contactEmail: serviceCase.primaryContact?.email ?? "",
+    contactPhone: serviceCase.primaryContact?.mobilePhone ?? serviceCase.primaryContact?.businessPhone ?? ""
+  });
+  return `/scope-builder?${params.toString()}` as Route;
+}
+
+function formatSiteAddress(serviceCase: ServiceCase) {
+  const address = serviceCase.site.address;
+  if (!address) {
+    return "";
+  }
+  return `${address.street}, ${address.city}, ${address.stateOrProvince} ${address.postalCode}`.trim();
 }
