@@ -141,10 +141,19 @@ The original Python/Dash application (`av_supervisor_dashboard.py`) includes a p
 ### 4.2.1 Location-Based Labor Provider + Internal Utilization
 Add a labor sourcing panel in the scope builder that responds to the selected service location.
 
-Current implementation target (pre-SharePoint):
+Current implementation:
 - Data source for labor providers: Excel file at `./data/current/labor_provider_directory.xlsx`
 - Purpose: when site/city/state is filled in, show matching labor provider vendors for that geography
-- Manual setup now: populate this workbook directly with a small starter vendor list before feature build
+- Current seeded providers:
+  - Field Nation (nationwide)
+  - TEK Systems (nationwide)
+  - MediaCentric (California markets)
+- Matching behavior:
+  - `city=ALL` and `state=ALL` means nationwide coverage
+  - `city=ALL` with a specific state (for example `CA`) means state-wide coverage
+  - specific `city` + `state` means market-specific coverage
+  - if `coverage_type` is provided in Excel, UI uses it as the display label (for example, `Nationwide`, `California Markets`)
+- Loader path: `src/lib/excel/labor-provider-source.ts` (reads `EXCEL_LABOR_PROVIDER_FILE` with sample fallback)
 
 Future source:
 - Replace the labor provider Excel source with a SharePoint list-backed connector

@@ -1,5 +1,6 @@
 import { getDispatches, getServiceCases } from "@/lib/data/repository";
 import { ScopeBuilderWorkbench } from "@/components/scopes/scope-builder-workbench";
+import { loadLaborProviderDirectoryRows } from "@/lib/excel/labor-provider-source";
 
 interface ScopeCaseSeed {
   caseNumber: string;
@@ -11,6 +12,16 @@ interface ScopeCaseSeed {
   contactName: string;
   contactEmail: string;
   contactPhone: string;
+}
+
+interface ScopeLaborProviderSeed {
+  id: string;
+  providerName: string;
+  city: string;
+  state: string;
+  skillFocus: string;
+  leadTime: string;
+  coverageType?: string;
 }
 
 function buildSeedCases(): ScopeCaseSeed[] {
@@ -58,5 +69,16 @@ function buildSeedCases(): ScopeCaseSeed[] {
 }
 
 export function ScopeBuilderView() {
-  return <ScopeBuilderWorkbench seedCases={buildSeedCases()} />;
+  const { rows } = loadLaborProviderDirectoryRows();
+  const laborProviders = rows.map((row, index) => ({
+    id: `lp-${index + 1}`,
+    providerName: row.providerName,
+    city: row.city,
+    state: row.state,
+    skillFocus: row.skillFocus,
+    leadTime: row.leadTime,
+    coverageType: row.coverageType
+  } satisfies ScopeLaborProviderSeed));
+
+  return <ScopeBuilderWorkbench seedCases={buildSeedCases()} laborProviders={laborProviders} />;
 }

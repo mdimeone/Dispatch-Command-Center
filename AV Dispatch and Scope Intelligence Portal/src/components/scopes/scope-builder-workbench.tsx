@@ -23,6 +23,7 @@ interface ScopeCaseSeed {
 
 interface ScopeBuilderWorkbenchProps {
   seedCases: ScopeCaseSeed[];
+  laborProviders: LaborProvider[];
 }
 
 type StaffingMode = "Internal" | "Labor Partner" | "Hybrid";
@@ -75,6 +76,7 @@ interface LaborProvider {
   state: string;
   skillFocus: string;
   leadTime: string;
+  coverageType?: string;
 }
 
 interface InternalTech {
@@ -124,13 +126,6 @@ const DEFAULT_FORM: ScopeFormState = {
   hasPreviousVisit: "No",
   previousVisitNotes: ""
 };
-
-const LABOR_PROVIDERS: LaborProvider[] = [
-  { id: "lp-1", providerName: "Mid-Atlantic AV Services", city: "Malvern", state: "PA", skillFocus: "Conference Room Break/Fix", leadTime: "2 business days" },
-  { id: "lp-2", providerName: "Tri-State Field Ops", city: "New York", state: "NY", skillFocus: "Broadcast + Executive Spaces", leadTime: "1 business day" },
-  { id: "lp-3", providerName: "Southeast Integration Labor", city: "Atlanta", state: "GA", skillFocus: "DSP / Control / Display", leadTime: "2-3 business days" },
-  { id: "lp-4", providerName: "Carolina AV Resource Group", city: "Raleigh", state: "NC", skillFocus: "Troubleshooting + Closeout", leadTime: "3 business days" }
-];
 
 const INTERNAL_TECH_POOL: InternalTech[] = [
   { id: "it-1", name: "Brian Fritz", homeCity: "Malvern", homeState: "PA", role: "Field Technician", utilizationPercent: 42 },
@@ -271,6 +266,33 @@ function fieldLabelClassName() {
   return "mb-1 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500";
 }
 
+function formatCoverageLabel(provider: LaborProvider): string {
+  const city = provider.city.trim().toUpperCase();
+  const state = provider.state.trim().toUpperCase();
+
+  if (provider.coverageType?.trim()) {
+    return provider.coverageType.trim();
+  }
+
+  if (city === "ALL" && state === "ALL") {
+    return "Nationwide";
+  }
+
+  if (city === "ALL" && state && state !== "ALL") {
+    return `${state} statewide`;
+  }
+
+  if (city && city !== "ALL" && state && state !== "ALL") {
+    return `${provider.city}, ${provider.state}`;
+  }
+
+  if (city && city !== "ALL") {
+    return `${provider.city} market`;
+  }
+
+  return "Regional coverage";
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -280,7 +302,7 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-export function ScopeBuilderWorkbench({ seedCases }: ScopeBuilderWorkbenchProps) {
+export function ScopeBuilderWorkbench({ seedCases, laborProviders }: ScopeBuilderWorkbenchProps) {
   const [form, setForm] = useState<ScopeFormState>(DEFAULT_FORM);
   const [downloadFormat, setDownloadFormat] = useState<DownloadFormat>("txt");
   const searchParams = useSearchParams();
@@ -315,12 +337,18 @@ export function ScopeBuilderWorkbench({ seedCases }: ScopeBuilderWorkbenchProps)
   const locationMatchedLaborProviders = useMemo(() => {
     const targetState = form.state.trim().toUpperCase();
     const targetCity = form.city.trim().toUpperCase();
-    return LABOR_PROVIDERS.filter((provider) => {
-      const stateMatch = targetState && provider.state.toUpperCase() === targetState;
-      const cityMatch = targetCity && provider.city.toUpperCase() === targetCity;
+    return laborProviders.filter((provider) => {
+      const providerState = provider.state.toUpperCase();
+      const providerCity = provider.city.toUpperCase();
+      const nationwideMatch = providerState === "ALL" && providerCity === "ALL";
+      const stateMatch = targetState && (providerState === targetState || providerState === "ALL");
+      const cityMatch = targetCity && (providerCity === targetCity || providerCity === "ALL");
+      if (!targetState && !targetCity) {
+        return nationwideMatch;
+      }
       return cityMatch || stateMatch;
     });
-  }, [form.city, form.state]);
+  }, [form.city, form.state, laborProviders]);
 
   const lowUtilizationTechs = useMemo(() => {
     const targetState = form.state.trim().toUpperCase();
@@ -657,9 +685,7 @@ export function ScopeBuilderWorkbench({ seedCases }: ScopeBuilderWorkbenchProps)
                 locationMatchedLaborProviders.map((provider) => (
                   <div key={provider.id} className="rounded-xl border border-slate-200 bg-white p-3">
                     <p className="font-medium text-slate-900">{provider.providerName}</p>
-                    <p className="text-sm text-slate-600">
-                      {provider.city}, {provider.state}
-                    </p>
+                    <p className="text-sm text-slate-600">Coverage: {formatCoverageLabel(provider)}</p>
                     <p className="mt-1 text-xs text-slate-500">Focus: {provider.skillFocus}</p>
                     <p className="text-xs text-slate-500">Lead time: {provider.leadTime}</p>
                   </div>
