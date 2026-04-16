@@ -177,6 +177,8 @@ function normalizeDateValue(value: unknown) {
 }
 
 function resolveWorkbookPath(filePath: string) {
-  return path.isAbsolute(filePath) ? filePath : path.resolve(process.cwd(), filePath);
+  return path.isAbsolute(filePath)
+    ? filePath
+    : path.resolve(/*turbopackIgnore: true*/ process.cwd(), filePath);
 }
 
